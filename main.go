@@ -14,6 +14,11 @@ func main() {
 		log.Println("SLACK_TOKEN not found")
 		os.Exit(1)
 	}
+	botName := os.Getenv("BOT_NAME")
+	if botName == "" {
+		botName = "sdsu"
+	}
+
 	api := slack.New(os.Getenv("SLACK_TOKEN"))
 	//api.SetDebug(true)
 	log.Println("Slack Bot Starting")
@@ -28,9 +33,13 @@ func main() {
 			if ev.User != info.User.ID { //verifies the message is not from the bot
 				if info.GetIMByID(ev.Channel).IsIM {
 					log.Printf("Direct message: %s", ev.Text)
-					go respond(rtm, ev)
-				} else {
+					command := strings.TrimSpace(ev.Text)
+					go respond(rtm, ev, command)
+				} else if strings.HasPrefix(ev.Text, botName+" ") {
 					log.Printf("Message: %v %v", ev.Text, ev.User)
+					args := strings.Split(ev.Text, " ")
+					command := strings.TrimSpace(strings.Join(args[1:], " "))
+					go respond(rtm, ev, command)
 				}
 			}
 		case *slack.RTMError:
@@ -45,9 +54,9 @@ func main() {
 }
 
 //function to handle direct messages to bot
-func respond(rtm *slack.RTM, msg *slack.MessageEvent) {
+func respond(rtm *slack.RTM, msg *slack.MessageEvent, command string) {
 	var response string
-	args := strings.Split(msg.Text, " ")
+	args := strings.Split(command, " ")
 	switch args[0] {
 	case "help":
 		help := "Supported commands:\n"
