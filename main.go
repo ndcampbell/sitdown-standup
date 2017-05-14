@@ -51,7 +51,8 @@ func respond(rtm *slack.RTM, msg *slack.MessageEvent) {
 	case "help":
 		helpResp(rtm, msg.Channel)
 	case "add_standup":
-		response = args[0] + ": Command not implemented"
+		addStandup(args[1], args[2], args[3], args[4:])
+		response = "Standup Added"
 	case "add_user":
 		response = args[0] + ": Command not implemented"
 	case "standup_info":
@@ -62,12 +63,12 @@ func respond(rtm *slack.RTM, msg *slack.MessageEvent) {
 	}
 }
 
+//handles the help block
 func helpResp(rtm *slack.RTM, channel string) {
 	commands := map[string]string{
 		"add_standup <name> <cron> <channel> <user1> <userN>": "Creates a standup that will message all given users based on cron schedule",
 		"add_user <name> <user>":                              "Adds a user to the given standup",
-		"standup_info <name>":                                 "Lists info about the given standup like schedule and users",
-		"list_standups":                                       "Lists all standups",
+		"list_standups":                                       "Lists all standups with schedule and users",
 	}
 	fields := make([]slack.AttachmentField, 0)
 	for k, v := range commands {
