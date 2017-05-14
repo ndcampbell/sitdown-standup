@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/nlopes/slack"
 	"log"
 	"os"
@@ -27,7 +26,6 @@ func main() {
 		case *slack.MessageEvent:
 			info := rtm.GetInfo()
 			if ev.User != info.User.ID { //verifies the message is not from the bot
-				log.Printf("%v", ev.Text)
 				if verifyChannelisIM(rtm, ev.Channel) {
 					log.Printf("Direct message: %s", ev.Text)
 					go respond(rtm, ev)
@@ -51,30 +49,45 @@ func respond(rtm *slack.RTM, msg *slack.MessageEvent) {
 	args := strings.Split(trimmedCmd, " ")
 	switch args[0] {
 	case "help":
-		helpstr := help()
-		response = fmt.Sprintf(helpstr)
+		helpResp(rtm, msg.Channel)
 	case "add_standup":
 		response = args[0] + ": Command not implemented"
 	case "add_user":
 		response = args[0] + ": Command not implemented"
 	case "standup_info":
 		response = args[0] + ": Command not implemented"
-	default:
-		helpstr := args[0] + ": Command not found\n"
-		helpstr += help()
-		response = fmt.Sprintf(helpstr)
 	}
-	rtm.SendMessage(rtm.NewOutgoingMessage(response, msg.Channel))
+	if response != "" {
+		rtm.SendMessage(rtm.NewOutgoingMessage(response, msg.Channel))
+	}
 }
 
-func help() string {
-	helpstr := "Supported Commands:\n"
-	helpstr += "> add_standup <standup name> <cron expression> <channel> <user1> <userN>\n"
-	helpstr += "> add_user <standup name> <user>\n"
-	helpstr += "> standup_info <standup name>\n"
-	return helpstr
+func helpResp(rtm *slack.RTM, channel string) {
+	commands := map[string]string{
+		"add_standup <name> <cron> <channel> <user1> <userN>": "Creates a standup that will message all given users based on cron schedule",
+		"add_user <name> <user>":                              "Adds a user to the given standup",
+		"standup_info <name>":                                 "Lists info about the given standup like schedule and users",
+		"list_standups":                                       "Lists all standups",
+	}
+	fields := make([]slack.AttachmentField, 0)
+	for k, v := range commands {
+		fields = append(fields, slack.AttachmentField{
+			Title: k,
+			Value: v,
+		})
+	}
+	attachment := slack.Attachment{
+		Pretext: "Supported Commands:",
+		Color:   "#B733FF",
+		Fields:  fields,
+	}
+	params := slack.PostMessageParameters{}
+	params.AsUser = true
+	params.Attachments = []slack.Attachment{attachment}
+	rtm.PostMessage(channel, "", params)
 }
 
+//checks that a channel is an IM
 func verifyChannelisIM(rtm *slack.RTM, id string) bool {
 	info := rtm.GetInfo()
 	for _, im := range info.IMs {
