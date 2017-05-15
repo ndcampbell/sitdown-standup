@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+var api *slack.Client
+
 func main() {
 	token := os.Getenv("SLACK_TOKEN")
 	if token == "" {
@@ -14,11 +16,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	api := slack.New(os.Getenv("SLACK_TOKEN"))
+	api = slack.New(os.Getenv("SLACK_TOKEN"))
 	//api.SetDebug(true)
 	log.Println("Slack Bot Starting")
 
 	rtm := api.NewRTM()
+	standupCron.Start()
 	go rtm.ManageConnection()
 
 	for msg := range rtm.IncomingEvents {
@@ -51,8 +54,12 @@ func respond(rtm *slack.RTM, msg *slack.MessageEvent) {
 	case "help":
 		helpResp(rtm, msg.Channel)
 	case "add_standup":
-		addStandup(args[1], args[2], args[3], args[4:])
-		response = "Standup Added"
+		err := addStandup(rtm, args)
+		if err != nil {
+			response = err.Error()
+		} else {
+			response = "Standup Added"
+		}
 	case "add_user":
 		response = args[0] + ": Command not implemented"
 	case "standup_info":
@@ -66,9 +73,9 @@ func respond(rtm *slack.RTM, msg *slack.MessageEvent) {
 //handles the help block
 func helpResp(rtm *slack.RTM, channel string) {
 	commands := map[string]string{
-		"add_standup <name> <cron> <channel> <user1> <userN>": "Creates a standup that will message all given users based on cron schedule",
-		"add_user <name> <user>":                              "Adds a user to the given standup",
-		"list_standups":                                       "Lists all standups with schedule and users",
+		"add_standup <name> <hour or cron> <channel> <user1> <userN>": "Creates a standup that will message all given users based on cron schedule",
+		"add_user <name> <user>":                                      "Adds a user to the given standup",
+		"list_standups":                                               "Lists all standups with schedule and users",
 	}
 	fields := make([]slack.AttachmentField, 0)
 	for k, v := range commands {
